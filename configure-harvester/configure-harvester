@@ -17,7 +17,9 @@ update_boot_args()
       fi
 
       if [ -e "/dev/${TTY%,*}" ] && [ "$TTY" != tty1 ] && [ "$TTY" != console ] && [ -n "$TTY" ]; then
-          sed -i "1s/.*/console_params=\"console=${TTY} console=tty1\"/g" ${TARGET}/etc/cos/bootargs.cfg
+          sed -i "1s/.*/set console_params=\"console=${TTY}\"/g" ${TARGET}/etc/cos/bootargs.cfg
+      else
+          sed -i "1s/.*/set console_params=\"console=tty1\"/g" ${TARGET}/etc/cos/bootargs.cfg
       fi
 }
 
@@ -31,7 +33,8 @@ if [ -n "${HARVESTER_STREAMDISK_CLOUDINIT_URL}" ]
 then
   mkdir -p /oem
   mount -t ext4 ${HARVESTER_DEVICE}${DEFAULT_OEM_PARTITION} /oem
-  curl -k -o /oem/harvester.config ${HARVESTER_STREAMDISK_CLOUDINIT_URL}
+  curl -k -o /oem/userdata.yaml ${HARVESTER_STREAMDISK_CLOUDINIT_URL}
+  yq e -i '.install.device= env(HARVESTER_DEVICE)' /oem/harvester.config
   umount /oem
 fi
 
@@ -45,6 +48,7 @@ update_boot_args
 
 # resize HARV_LH_DEFAULT
 echo "resizing default data disk"
+sgdisk -e ${HARVESTER_DEVICE}
 parted ${HARVESTER_DEVICE} resizepart ${DEFAULT_LH_PARTITION} 100%
 yes y | mke2fs -q -t ext4 ${HARVESTER_DEVICE}${DEFAULT_LH_PARTITION}
 e2label ${HARVESTER_DEVICE}${DEFAULT_LH_PARTITION} ${DATA_DISK_FSLABEL}
